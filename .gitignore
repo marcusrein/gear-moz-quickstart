@@ -1,0 +1,15 @@
+# Local config & secrets
+.env
+gateway/config.yml
+
+# Models (large / machine-specific)
+models/*.llamafile
+models/*.gguf
+
+# Tooling
+node_modules/
+.promptfoo/
+__pycache__/
+*.pyc
+.venv/
+venv/

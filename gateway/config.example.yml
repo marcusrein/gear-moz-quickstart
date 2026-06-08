@@ -1,0 +1,38 @@
+# ===========================================================================
+# Otari gateway config (template).
+# `make config` renders this to gateway/config.yml, substituting ${VARS} from .env.
+#
+# Otari is young (v0); if the gateway rejects this file, grab the current
+# config.example.yml from https://github.com/mozilla-ai/otari and port the
+# provider block below into it. Everything else in this repo is unaffected,
+# because it only ever talks to the gateway over the OpenAI-compatible API.
+# ===========================================================================
+
+# Admin/master key. The helper scripts use this as the bearer token.
+master_key: ${GATEWAY_MASTER_KEY}
+
+providers:
+  # --- LOCAL (default — no API key needed) ----------------------------------
+  # any-llm's `ollama` provider. host.docker.internal points the gateway
+  # (running in Docker) at the Ollama server on your host.
+  # Client/eval model string for this provider:  ollama:${LOCAL_MODEL}
+  ollama:
+    api_base: http://host.docker.internal:11434
+
+  # --- USING LLAMAFILE INSTEAD OF OLLAMA ------------------------------------
+  # llamafile serves an OpenAI-compatible API on :8080. To use it, comment out
+  # the `ollama` block above and uncomment this one (any model name works;
+  # llamafile serves whatever model the file contains):
+  #
+  # openai-local:
+  #   api_base: http://host.docker.internal:8080/v1
+  #   api_key: "sk-no-key-required"
+
+  # --- FRONTIER (optional, opt-in) ------------------------------------------
+  # Add the key in .env, then uncomment. Client/eval model strings become e.g.
+  # openai:gpt-4o-mini  or  anthropic:claude-3-5-haiku-latest
+  #
+  # openai:
+  #   api_key: ${OPENAI_API_KEY}
+  # anthropic:
+  #   api_key: ${ANTHROPIC_API_KEY}

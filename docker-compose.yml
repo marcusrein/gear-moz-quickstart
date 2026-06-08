@@ -1,0 +1,39 @@
+# Runs the Otari gateway (Mozilla.ai, Apache-2.0) — the "A" in GEAR.
+# Image: https://hub.docker.com/r/mzdotai/otari
+#
+# Kept deliberately minimal (gateway only) so there are few moving parts.
+# The gateway reaches your local model on the HOST via host.docker.internal.
+
+services:
+  gateway:
+    image: mzdotai/otari:latest
+    command: gateway serve --config /app/config.yml
+    ports:
+      - "8000:8000"
+    volumes:
+      # Rendered by `make config` from gateway/config.example.yml + your .env
+      - ./gateway/config.yml:/app/config.yml:ro
+    env_file:
+      - .env
+    extra_hosts:
+      # Lets the gateway (in this container) reach Ollama (:11434) or a
+      # llamafile (:8080) running on your host — works on Linux too.
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+# OPTIONAL persistence: Otari can use PostgreSQL instead of its default local
+# store. If you want that, uncomment below and set the DB connection in
+# gateway/config.example.yml per the Otari repo's config.example.yml.
+#
+#   db:
+#     image: postgres:16
+#     environment:
+#       POSTGRES_USER: gateway
+#       POSTGRES_PASSWORD: gateway
+#       POSTGRES_DB: gateway
+#     volumes:
+#       - gear_moz_pgdata:/var/lib/postgresql/data
+#     restart: unless-stopped
+#
+# volumes:
+#   gear_moz_pgdata:
