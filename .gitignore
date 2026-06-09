@@ -1,6 +1,7 @@
 # Local config & secrets
 .env
 gateway/config.yml
+evals/promptfooconfig.yaml
 
 # Gateway state (sqlite DB, etc.) — persisted across `make restart`, wiped by `make clean`
 gateway/data/
