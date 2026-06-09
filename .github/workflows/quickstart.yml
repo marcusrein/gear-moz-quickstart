@@ -1,0 +1,67 @@
+name: quickstart smoke
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: make quickstart on ubuntu-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 22 (promptfoo requires >=22)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama bound to 0.0.0.0
+        # The install script launches ollama on 127.0.0.1 via systemd; that's
+        # unreachable from the gateway container, which talks to Ollama via
+        # host.docker.internal. Stop the service and re-launch on all
+        # interfaces so the Linux 'host-gateway' bridge can route to it.
+        run: |
+          sudo systemctl stop ollama || true
+          OLLAMA_HOST=0.0.0.0:11434 nohup ollama serve > /tmp/ollama.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:11434/api/tags >/dev/null; then
+              echo "ollama is up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "ollama failed to start"
+          cat /tmp/ollama.log
+          exit 1
+
+      - name: Bootstrap .env
+        run: cp .env.example .env
+
+      - name: make quickstart (the lighthouse test)
+        run: make quickstart
+
+      - name: make chat — verify end-to-end
+        run: make chat MSG="Reply with exactly: CI smoke pass."
+
+      - name: make eval — informational
+        # The default LOCAL_MODEL (qwen3:0.6b) is intentionally tiny — it will
+        # fail at least one test (typically the prompt-injection one). That's
+        # the eval doing its job; it's why the suite exists. We surface the
+        # result but don't gate CI on it. To gate, point the eval at a
+        # stricter grader and stricter model in promptfooconfig.yaml.
+        continue-on-error: true
+        run: make eval
+
+      - name: Dump gateway logs on failure
+        if: failure()
+        run: |
+          echo "=== gateway logs ==="
+          docker compose logs gateway || true
+          echo "=== ollama logs ==="
+          tail -200 /tmp/ollama.log || true
