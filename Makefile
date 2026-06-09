@@ -25,6 +25,7 @@ quickstart: ## One command: check tools, get model, start gateway, smoke test
 	@$(MAKE) --no-print-directory config
 	@$(MAKE) --no-print-directory up
 	@$(MAKE) --no-print-directory wait
+	@$(MAKE) --no-print-directory capture-key
 	@$(MAKE) --no-print-directory chat-smoke
 	@$(MAKE) --no-print-directory next
 
@@ -50,6 +51,7 @@ restart: ## Recreate the gateway after editing .env / config
 	@$(MAKE) --no-print-directory config
 	@docker compose up -d --force-recreate
 	@$(MAKE) --no-print-directory wait
+	@$(MAKE) --no-print-directory capture-key
 
 wait: ## Wait for the gateway to report healthy
 	@printf "  waiting for gateway"; \
@@ -64,7 +66,10 @@ logs: ## Tail the gateway logs (every request is traced here)
 
 key: ## Print the API key the gateway bootstrapped in its logs
 	@docker compose logs 2>/dev/null | grep -iE "api[ _-]?key" | tail -n 5 \
-		|| echo "No key line found — your GATEWAY_MASTER_KEY from .env also works as the bearer token."
+		|| echo "No key line found — run 'make capture-key' once the gateway is up."
+
+capture-key: ## Read the gateway's bootstrap key from logs and save it to .env
+	@bash scripts/capture-key.sh
 
 chat: ## Send a message:  make chat MSG="your question"
 	@bash scripts/chat.sh "" "$(MSG)"
@@ -94,4 +99,4 @@ next: ## Show next steps
 	@echo "  Add a frontier key to .env to compare local vs frontier. See the README."
 	@echo ""
 
-.PHONY: help quickstart preflight model config up down restart wait logs key chat chat-smoke eval eval-view clean next
+.PHONY: help quickstart preflight model config up down restart wait logs key capture-key chat chat-smoke eval eval-view clean next
