@@ -6,6 +6,15 @@ ok()   { printf "  \033[32m✓\033[0m %s\n" "$1"; }
 warn() { printf "  \033[33m!\033[0m %s\n" "$1"; }
 bad()  { printf "  \033[31m✗\033[0m %s\n" "$1"; }
 
+# Load .env the same way docker compose does, so checks reflect what the
+# gateway will actually see — not whatever happens to be in your shell env.
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+
 echo ""
 echo "  Preflight"
 echo ""
@@ -29,7 +38,21 @@ if command -v node >/dev/null 2>&1; then ok "node ($(node -v))"; else warn "node
 
 # --- a local runtime (need at least one) ------------------------------------
 runtime=0
-command -v ollama >/dev/null 2>&1 && { ok "ollama (local runtime found)"; runtime=1; }
+if command -v ollama >/dev/null 2>&1; then
+  ok "ollama (local runtime found)"
+  runtime=1
+  # Verify LOCAL_MODEL is actually pulled. If not, every chat/eval will fail
+  # silently with "No output" because promptfoo's ollama provider just returns
+  # nothing for unknown tags.
+  want="${LOCAL_MODEL:-}"
+  if [[ -n "$want" ]]; then
+    if ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -qx "$want"; then
+      ok "ollama has '$want' pulled"
+    else
+      warn "ollama is installed but '$want' isn't pulled — run 'make model' (or 'ollama pull $want') before 'make chat' / 'make eval'"
+    fi
+  fi
+fi
 shopt -s nullglob
 lf=(models/*.llamafile)
 (( ${#lf[@]} )) && { ok "llamafile present in ./models (${lf[0]})"; runtime=1; }
@@ -38,10 +61,17 @@ if (( runtime == 0 )); then
 fi
 
 # --- optional frontier ------------------------------------------------------
-if [[ -n "${OPENAI_API_KEY:-}" || -n "${ANTHROPIC_API_KEY:-}" ]]; then
-  ok "frontier API key detected (local-vs-frontier comparison available)"
+# Check the .env file directly (not the shell env). Docker compose loads from
+# .env via env_file; a key exported only in your shell will NOT reach the
+# gateway and was producing false positives here.
+has_frontier=0
+if [[ -f .env ]] && grep -Eq '^(OPENAI_API_KEY|ANTHROPIC_API_KEY)=.+' .env; then
+  has_frontier=1
+fi
+if (( has_frontier )); then
+  ok "frontier API key detected in .env (local-vs-frontier comparison available)"
 else
-  warn "no frontier key set — running fully local (that's fine; add one later in .env)"
+  warn "no frontier key set in .env — running fully local (that's fine; add one later)"
 fi
 
 echo ""
