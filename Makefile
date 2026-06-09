@@ -85,8 +85,10 @@ eval: ## Run the eval suite (local, plus frontier if configured)
 eval-view: ## Open the eval results UI
 	@npx -y promptfoo@latest view
 
-clean: ## Stop the gateway and remove its volumes
+clean: ## Stop the gateway and wipe its persistent state (DB, keys, traces)
 	@docker compose down -v
+	@rm -rf gateway/data
+	@echo "  ✓ gateway state cleared (next 'make quickstart' starts fresh)"
 
 next: ## Show next steps
 	@echo ""
