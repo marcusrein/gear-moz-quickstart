@@ -39,6 +39,12 @@ config: ## Render gateway/config.yml and evals/promptfooconfig.yaml from .env
 	@bash scripts/render-config.sh
 
 up: ## Start the gateway (docker compose)
+	@# Pre-create the bind-mount target with permissions Otari (uid 1000 in
+	@# the container) can write to. On macOS Docker Desktop handles uid
+	@# translation; on Linux it doesn't, and sqlite blows up with "unable to
+	@# open database file" without this.
+	@mkdir -p gateway/data
+	@chmod 777 gateway/data 2>/dev/null || true
 	@docker compose up -d
 	@echo "✓ Gateway starting — $(GATEWAY_URL)  (API docs: $(GATEWAY_URL)/docs)"
 
