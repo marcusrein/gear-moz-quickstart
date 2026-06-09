@@ -39,7 +39,8 @@ That's the whole GEAR thesis in miniature: the model is a config line, and you c
 - **Node.js 18+** (for `npx promptfoo`)
 - **One local runtime** — either:
   - **llamafile** — the Mozilla way: a single executable, no install, or
-  - **Ollama** — the zero-friction fallback (`ollama pull` and go)
+  - **Ollama** — the zero-friction fallback (`ollama pull` and go).
+    On macOS, install via `brew install --cask ollama-app` or download from [ollama.com](https://ollama.com) — the plain `brew install ollama` formula ships without the `llama-server` binary and chat will fail at inference time.
 - `curl`, `jq`, and `envsubst` (gettext) — common dev tools; `make preflight` checks them
 - *(Optional)* a frontier API key (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`) **only** if you want a local-vs-frontier comparison
 
@@ -117,7 +118,8 @@ Everything is a knob, and every knob is in a file:
 - **Gateway can't reach the model** → the model runs on your *host*, the gateway in a *container*. This repo sets `host.docker.internal` so it works on Mac/Windows and Linux. On Linux without it, add `--network host` or check the `extra_hosts` line in `docker-compose.yml`.
 - **First reply is slow** → the model loads into memory on the first request. Subsequent calls are fast.
 - **Gateway rejects `config.yml`** → Otari is young (v0) and its config schema can shift. Grab the current `config.example.yml` from the [Otari repo](https://github.com/mozilla-ai/otari) and port your provider into it. **Nothing else in this repo breaks** — everything downstream talks to the gateway only over the stable OpenAI-compatible API. (That's the thin-contract design doing its job.)
-- **`make chat` says auth failed** → use the key the gateway printed at startup: `make key`. Otherwise it falls back to `GATEWAY_MASTER_KEY` from `.env`.
+- **`make chat` says auth failed** → `make quickstart` and `make restart` auto-capture the gateway's bootstrap key into `.env` as `GATEWAY_API_KEY`. If you skipped those steps, run `make capture-key` once the gateway is up. `GATEWAY_MASTER_KEY` alone won't authenticate chat requests — Otari treats the master key as admin-only.
+- **`LLM provider error` / `llama-server binary not found`** → you're likely on the Homebrew `ollama` *formula*, which is incomplete. Reinstall with the cask: `brew uninstall ollama && brew install --cask ollama-app`, then launch Ollama.app and re-run `make restart`.
 
 ---
 

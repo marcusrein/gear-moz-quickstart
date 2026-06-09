@@ -11,6 +11,11 @@
 # Admin/master key. The helper scripts use this as the bearer token.
 master_key: ${GATEWAY_MASTER_KEY}
 
+# Self-hosted/local models have no cost — turn off the pricing gate so
+# requests aren't rejected with HTTP 402. Add a `pricing:` block if you
+# wire in a paid provider.
+require_pricing: false
+
 providers:
   # --- LOCAL (default — no API key needed) ----------------------------------
   # any-llm's `ollama` provider. host.docker.internal points the gateway
