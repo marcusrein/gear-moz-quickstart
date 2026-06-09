@@ -80,7 +80,19 @@ chat-smoke: ## Internal: a one-shot smoke test through the gateway
 		|| { echo "✗ chat failed — see 'make logs' and the Troubleshooting section in the README."; exit 1; }
 
 eval: ## Run the eval suite (local, plus frontier if configured)
-	@npx -y promptfoo@latest eval -c evals/promptfooconfig.yaml
+	@npx -y promptfoo@latest eval -c evals/promptfooconfig.yaml; \
+	code=$$?; \
+	if [ $$code -eq 100 ]; then \
+	  echo ""; \
+	  echo "  ──────────────────────────────────────────────────────────────"; \
+	  echo "  ! exit 100 — at least one test failed."; \
+	  echo "    That's the eval doing its job: it's the same exit code you'd"; \
+	  echo "    use to gate a CI build. Open 'make eval-view' to see which"; \
+	  echo "    behaviors need work, then either tighten prompts, swap models,"; \
+	  echo "    or relax the assertion to match what you actually want."; \
+	  echo "  ──────────────────────────────────────────────────────────────"; \
+	fi; \
+	exit $$code
 
 eval-view: ## Open the eval results UI
 	@npx -y promptfoo@latest view
