@@ -1,16 +1,33 @@
 #!/usr/bin/env bash
-# Capture the bootstrap API key Otari prints at first startup, and save it to
+# Capture the API key the Otari gateway uses for chat/eval, and save it to
 # .env as GATEWAY_API_KEY so the helper scripts (chat.sh) can authenticate.
 #
-# Why this exists: GATEWAY_MASTER_KEY from .env is the admin/master key, which
-# Otari requires to also carry a 'user' field — chat/eval traffic won't auth
-# with it. The gateway prints a real, user-scoped key in its logs on first run.
+# Why this exists: GATEWAY_MASTER_KEY is admin-only — Otari requires a
+# user-scoped key for chat traffic. On first boot the gateway mints a
+# bootstrap key and prints it to the logs. With the persistent volume
+# (docker-compose.yml), that key survives `make restart`, so on subsequent
+# runs we just verify the existing key still works.
 set -uo pipefail
 
 ENV_FILE="${ENV_FILE:-.env}"
+GATEWAY_URL="${GATEWAY_URL:-http://localhost:8000}"
 
-# Otari pretty-prints the key wrapped across multiple log lines. Strip the
-# compose 'gateway-1 |' prefix and whitespace, then pluck the gw-... token.
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "  ! $ENV_FILE not found — run 'cp .env.example .env' first."
+  exit 1
+fi
+
+# 1) Fast path: if .env already has a key and it authenticates, we're done.
+existing="$(grep -E '^GATEWAY_API_KEY=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '"'"'")"
+if [[ -n "$existing" ]]; then
+  if curl -sfo /dev/null -H "Authorization: Bearer $existing" "$GATEWAY_URL/v1/models"; then
+    echo "  ✓ Existing GATEWAY_API_KEY in $ENV_FILE still works (DB persisted)"
+    exit 0
+  fi
+fi
+
+# 2) Otherwise: scrape the bootstrap key out of the gateway logs. Otari
+#    pretty-prints it across multiple log lines, so collapse them first.
 KEY="$(docker compose logs gateway 2>/dev/null \
   | grep -A 3 "Save this key" \
   | sed 's/gateway-1//g; s/|//g; s/ //g' \
@@ -19,14 +36,10 @@ KEY="$(docker compose logs gateway 2>/dev/null \
   | tail -1)"
 
 if [[ -z "$KEY" ]]; then
-  echo "  ! couldn't find a bootstrap key in gateway logs yet."
-  echo "    (Run 'make logs' and look for 'Save this key now:')"
+  echo "  ! couldn't find a bootstrap key in gateway logs."
+  echo "    Likely the gateway loaded an existing DB without printing a new key."
+  echo "    If chat still fails with 401, run 'make clean' to reset state, then 'make quickstart'."
   exit 0
-fi
-
-if [[ ! -f "$ENV_FILE" ]]; then
-  echo "  ! $ENV_FILE not found — run 'cp .env.example .env' first."
-  exit 1
 fi
 
 if grep -q '^GATEWAY_API_KEY=' "$ENV_FILE"; then

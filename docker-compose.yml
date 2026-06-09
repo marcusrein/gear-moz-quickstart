@@ -6,13 +6,27 @@
 
 services:
   gateway:
-    image: mzdotai/otari:latest
+    # Pinned to a specific tag — Otari is v0 and ships breaking changes
+    # frequently. Bump deliberately: check https://hub.docker.com/r/mzdotai/otari/tags
+    # and verify the smoke test (`make quickstart`) still passes.
+    image: mzdotai/otari:bde1b1f
     command: gateway serve --config /app/config.yml
     ports:
       - "8000:8000"
     volumes:
       # Rendered by `make config` from gateway/config.example.yml + your .env
       - ./gateway/config.yml:/app/config.yml:ro
+      # Persists the gateway's SQLite DB (keys, users, budgets, traces) across
+      # `make restart` / --force-recreate. Without this, every restart wipes
+      # the bootstrap key and any state you've added via the API. Bind-mounted
+      # (not a named volume) so the directory inherits host-friendly perms;
+      # Otari runs as uid 1000 inside the container and named volumes mount
+      # as root by default.
+      - ./gateway/data:/app/data
+    environment:
+      # Point Otari's DB at the persistent directory above (default is in /app,
+      # which is the container's writable layer and gets wiped on recreate).
+      OTARI_DATABASE_URL: "sqlite:////app/data/otari-gateway.db"
     env_file:
       - .env
     extra_hosts:
@@ -21,9 +35,10 @@ services:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
-# OPTIONAL persistence: Otari can use PostgreSQL instead of its default local
-# store. If you want that, uncomment below and set the DB connection in
-# gateway/config.example.yml per the Otari repo's config.example.yml.
+# OPTIONAL: swap SQLite for PostgreSQL. If you want that, override
+# OTARI_DATABASE_URL above (e.g. postgresql://gateway:gateway@db/gateway)
+# and uncomment the db service below. The gear_moz_otari_data volume will
+# go unused in that case — feel free to remove it.
 #
 #   db:
 #     image: postgres:16
@@ -35,5 +50,5 @@ services:
 #       - gear_moz_pgdata:/var/lib/postgresql/data
 #     restart: unless-stopped
 #
-# volumes:
+# Then add to the volumes: block above:
 #   gear_moz_pgdata:

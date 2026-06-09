@@ -2,6 +2,9 @@
 .env
 gateway/config.yml
 
+# Gateway state (sqlite DB, etc.) — persisted across `make restart`, wiped by `make clean`
+gateway/data/
+
 # Models (large / machine-specific)
 models/*.llamafile
 models/*.gguf
