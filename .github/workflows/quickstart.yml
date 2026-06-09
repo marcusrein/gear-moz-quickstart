@@ -47,7 +47,8 @@ jobs:
         run: make quickstart
 
       - name: make chat — verify end-to-end
-        run: make chat MSG="Reply with exactly: CI smoke pass."
+        run: |
+          make chat MSG="Reply with exactly: CI smoke pass."
 
       - name: make eval — informational
         # The default LOCAL_MODEL (qwen3:0.6b) is intentionally tiny — it will
