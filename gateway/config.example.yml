@@ -34,10 +34,15 @@ providers:
   #   api_key: "sk-no-key-required"
 
   # --- FRONTIER (optional, opt-in) ------------------------------------------
-  # Add the key in .env, then uncomment. Client/eval model strings become e.g.
-  # openai:gpt-4o-mini  or  anthropic:claude-3-5-haiku-latest
+  # `make config` auto-uncomments these blocks if OPENAI_API_KEY /
+  # ANTHROPIC_API_KEY are set in .env. Don't remove the BEGIN/END markers —
+  # scripts/render-config.sh uses them.
   #
+  # === BEGIN openai (auto-enabled when OPENAI_API_KEY is set) ===
   # openai:
   #   api_key: ${OPENAI_API_KEY}
+  # === END openai ===
+  # === BEGIN anthropic (auto-enabled when ANTHROPIC_API_KEY is set) ===
   # anthropic:
   #   api_key: ${ANTHROPIC_API_KEY}
+  # === END anthropic ===

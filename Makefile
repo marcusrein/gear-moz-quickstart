@@ -35,10 +35,8 @@ preflight: ## Check prerequisites
 model: ## Get a local model (llamafile or Ollama)
 	@bash scripts/model.sh
 
-config: ## Render gateway/config.yml from the template + .env
-	@command -v envsubst >/dev/null 2>&1 || { echo "✗ envsubst not found (install 'gettext'), or copy gateway/config.example.yml to gateway/config.yml by hand."; exit 1; }
-	@envsubst < gateway/config.example.yml > gateway/config.yml
-	@echo "✓ Wrote gateway/config.yml"
+config: ## Render gateway/config.yml and evals/promptfooconfig.yaml from .env
+	@bash scripts/render-config.sh
 
 up: ## Start the gateway (docker compose)
 	@docker compose up -d
@@ -80,6 +78,7 @@ chat-smoke: ## Internal: a one-shot smoke test through the gateway
 		|| { echo "✗ chat failed — see 'make logs' and the Troubleshooting section in the README."; exit 1; }
 
 eval: ## Run the eval suite (local, plus frontier if configured)
+	@$(MAKE) --no-print-directory config
 	@npx -y promptfoo@latest eval -c evals/promptfooconfig.yaml; \
 	code=$$?; \
 	if [ $$code -eq 100 ]; then \

@@ -1,10 +1,14 @@
 # =============================================================================
-# GEAR Moz eval suite — the keystone.
-#   Run:   make eval        (or: npx promptfoo@latest eval -c evals/promptfooconfig.yaml)
+# GEAR Moz eval suite — the keystone. (TEMPLATE)
+#
+# `make config` renders this to evals/promptfooconfig.yaml. To compare local
+# against frontier, just add OPENAI_API_KEY or ANTHROPIC_API_KEY to .env —
+# scripts/render-config.sh auto-uncomments the matching provider block
+# between the BEGIN/END markers below. Don't remove those markers.
+#
+#   Run:   make eval
 #   View:  make eval-view
 #
-# It runs the SAME tests against your local model and (optionally) a frontier
-# model, so you can SEE whether local is good enough for your task.
 # Runs fully offline by default: a local model is also the grader (see bottom).
 # =============================================================================
 
@@ -24,11 +28,15 @@ providers:
   #     apiBaseUrl: http://localhost:8080/v1
   #     apiKey: sk-no-key-required
 
-  # --- FRONTIER (optional) — uncomment + set the key in .env to compare -------
+  # --- FRONTIER (auto-enabled when keys are in .env) --------------------------
+  # === BEGIN openai (auto-enabled when OPENAI_API_KEY is set) ===
   # - id: openai:gpt-4o-mini
   #   label: frontier-openai
+  # === END openai ===
+  # === BEGIN anthropic (auto-enabled when ANTHROPIC_API_KEY is set) ===
   # - id: anthropic:messages:claude-3-5-haiku-latest
   #   label: frontier-anthropic
+  # === END anthropic ===
 
 prompts:
   - |
