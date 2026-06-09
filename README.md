@@ -1,5 +1,8 @@
 # GEAR Moz — Quickstart
 
+[![quickstart smoke](https://github.com/marcusrein/gear-moz-quickstart/actions/workflows/quickstart.yml/badge.svg)](https://github.com/marcusrein/gear-moz-quickstart/actions/workflows/quickstart.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A tiny, runnable slice of the **GEAR** stack built on **Mozilla.ai's** open-source tooling. It wires up the three pieces that matter and gets out of your way:
 
 **a local model → one OpenAI-compatible gateway → an eval that proves whether local is good enough.**
