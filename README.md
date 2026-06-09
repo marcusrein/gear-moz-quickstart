@@ -107,7 +107,7 @@ By default the eval even uses your **local model as the grader**, so the whole l
 Everything is a knob, and every knob is in a file:
 
 - **Swap the model** → set `LOCAL_MODEL` in `.env` (any Ollama tag), then `make model && make restart`.
-- **Compare against frontier** → put `OPENAI_API_KEY` (or `ANTHROPIC_API_KEY`) in `.env`, uncomment the matching provider in `gateway/config.example.yml` **and** the frontier block in `evals/promptfooconfig.yaml`, then `make restart eval`.
+- **Compare against frontier** → put `OPENAI_API_KEY` (or `ANTHROPIC_API_KEY`) in `.env`, then `make restart eval`. The gateway and eval configs auto-enable the matching provider — no manual uncommenting.
 - **Write your own evals** → edit `evals/promptfooconfig.yaml`. It reads like unit tests. Walkthrough in `evals/README.md`.
 - **Set a budget / mint a scoped key** → the gateway exposes `/v1/budgets` and `/v1/keys`. Live API docs at `http://localhost:8000/docs`.
 - **Watch every call** → `make logs`.
