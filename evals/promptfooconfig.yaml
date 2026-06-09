@@ -12,7 +12,9 @@ description: "GEAR Moz — is local good enough?"
 
 providers:
   # --- LOCAL (default) — promptfoo's native Ollama provider, no API key -------
-  - id: ollama:chat:qwen3:4b      # match this to LOCAL_MODEL in your .env
+  # The id is resolved at run time from $LOCAL_MODEL (set in .env), so the eval
+  # always targets whatever model your stack is actually serving.
+  - id: "ollama:chat:{{ env.LOCAL_MODEL }}"
     label: local
 
   # --- USING LLAMAFILE? comment the line above and use this instead -----------
@@ -68,5 +70,5 @@ tests:
 # stricter grading, point this at a frontier model once you've set a key.
 defaultTest:
   options:
-    provider: ollama:chat:qwen3:4b
+    provider: "ollama:chat:{{ env.LOCAL_MODEL }}"
     # provider: openai:gpt-4o-mini        # stricter grading (needs OPENAI_API_KEY)
