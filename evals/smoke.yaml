@@ -1,0 +1,46 @@
+# =============================================================================
+# GEAR Moz smoke eval — the CI gate.
+#
+# A tiny, deterministic suite that the default `qwen3:0.6b` model can pass
+# 100% of the time. Three `contains-any` checks, no llm-rubric. Run via:
+#
+#   make eval-smoke         # locally
+#
+# CI gates on this passing. The full Nimbus suite in promptfooconfig.yaml
+# stays informational — it deliberately tests behaviors that a 0.6B-param
+# model will sometimes fail, which is the point of an eval suite. This
+# smoke file proves the eval framework itself is wired up correctly.
+#
+# Don't add llm-rubric tests here. Determinism is the whole point.
+# =============================================================================
+
+description: "GEAR Moz — smoke (CI gate)"
+
+providers:
+  - id: "ollama:chat:{{ env.LOCAL_MODEL }}"
+    label: local
+
+prompts:
+  - "{{ question }}"
+
+tests:
+  - description: model produces text
+    vars: { question: "Say hello in one short sentence." }
+    assert:
+      - type: contains-any
+        value: ["hello", "Hello", "hi", "Hi", "greetings", "Greetings"]
+
+  - description: model can do basic arithmetic
+    vars: { question: "What is 1 plus 1? Reply with just the number." }
+    assert:
+      - type: contains
+        value: "2"
+
+  - description: model follows a 'name a thing' instruction
+    vars: { question: "Name one animal." }
+    assert:
+      - type: contains-any
+        value:
+          ["dog", "cat", "horse", "lion", "elephant", "bird", "fish",
+           "tiger", "bear", "wolf", "deer", "rabbit", "mouse", "monkey",
+           "cow", "sheep", "pig", "goat", "duck", "frog"]

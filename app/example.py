@@ -5,8 +5,10 @@ The gateway is OpenAI-compatible, so the official OpenAI SDK works unchanged —
 you just point base_url at the gateway. You could swap in Mozilla's own client,
 any-llm, for the same effect:  pip install 'any-llm-sdk[ollama,openai]'
 
-Run:
+Run (the venv step is what modern macOS / Linux Python expects — PEP 668):
+    python3 -m venv .venv && source .venv/bin/activate
     pip install openai
+    set -a; source .env; set +a   # load GATEWAY_API_KEY, LOCAL_MODEL, etc.
     # make sure the gateway is up (make up) and a model is available (make model)
     python app/example.py
 """

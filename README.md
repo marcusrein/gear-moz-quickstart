@@ -3,11 +3,32 @@
 [![quickstart smoke](https://github.com/marcusrein/gear-moz-quickstart/actions/workflows/quickstart.yml/badge.svg)](https://github.com/marcusrein/gear-moz-quickstart/actions/workflows/quickstart.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A tiny, runnable slice of the **GEAR** stack built on **Mozilla.ai's** open-source tooling. It wires up the three pieces that matter and gets out of your way:
+A tiny, runnable slice of the **GEAR** stack built on **Mozilla.ai's** open-source tooling. It wires up the spine — local model, gateway, eval — and gets out of your way:
 
 **a local model → one OpenAI-compatible gateway → an eval that proves whether local is good enough.**
 
 Everything here is open source. **No frontier API key is required to start** — it runs fully local out of the box.
+
+---
+
+## Why "GEAR"
+
+Infrastructure stacks are named after concrete things, not pitches. **LAMP** is Linux/Apache/MySQL/PHP — four real components. **MEAN** is the same move. You can tell what's inside the box from the name.
+
+**GEAR** sits in that register:
+
+- **G — Gateway.** One OpenAI-compatible endpoint in front of any model. Where keys, budgets, and request tracing live. The waist of the stack: your app code talks to it, and what's behind it can change without your app knowing. *Why fundamental:* every other layer (eval, agents, retrieval) needs to issue model calls. Putting them through one endpoint is what lets you swap models, enforce budgets, and trace requests without rewriting downstream code.
+- **E — Eval.** The keystone. Plain-English test cases that turn *"is local good enough?"* into a number you can put in CI. *Why fundamental:* without it, model choice is a vibe. With it, "small cheap model vs. big frontier model" becomes a measurement, and "did this prompt regress?" becomes a build gate.
+- **A — Agents.** Orchestration over the gateway: tool use, multi-step plans, guardrails. The layer that does more than one model call. *Why fundamental:* most real AI products are not one prompt, they're a sequence — fetch, reason, call a tool, summarize. Agents are the framework for that sequence.
+- **R — Retrieval.** Getting your data into the prompt. Vector store, embeddings, the RAG layer. *Why fundamental:* models don't know your data. Retrieval is how private knowledge enters the context window without fine-tuning.
+
+A local model is implied — it's the thing G, E, A, and R are *for*. (A stack that only ever calls a frontier API doesn't need most of this.)
+
+**This quickstart is the spine: G + E**, running a local model. That's enough to ask the question that drives the whole project — *is local good enough for my task?* — and answer it with a number. A and R drop in behind the same gateway contract, which is why they don't have to be here on day one. See [`docs/architecture.md`](docs/architecture.md) for what to add and where.
+
+**"GEAR Moz"** is the Mozilla-tooled build of GEAR: **Otari** for the gateway, **Promptfoo** for the eval, **llamafile / Ollama** for the model — with `any-agent`, `any-guardrail`, `pgvector` + `encoderfile`, and `Lumigator` as documented next steps. (The sibling build is **GEAR Core** — same pattern, different best-of-breed tools.)
+
+The name is utilitarian on purpose. The pitch is "the boring default" — the name should be too.
 
 ---
 
@@ -44,6 +65,7 @@ That's the whole GEAR thesis in miniature: the model is a config line, and you c
   - **llamafile** — the Mozilla way: a single executable, no install, or
   - **Ollama** — the zero-friction fallback (`ollama pull` and go).
     On macOS, install via `brew install --cask ollama-app` or download from [ollama.com](https://ollama.com) — the plain `brew install ollama` formula ships without the `llama-server` binary and chat will fail at inference time.
+    On Linux, `curl -fsSL https://ollama.com/install.sh | sh` is the official one-liner (it's what CI uses).
 - `curl`, `jq`, and `envsubst` (gettext) — common dev tools; `make preflight` checks them
 - *(Optional)* a frontier API key (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`) **only** if you want a local-vs-frontier comparison
 
@@ -59,6 +81,8 @@ make quickstart           # preflight → get model → start gateway → smoke 
 ```
 
 `make quickstart` checks your tools, gets a local model, renders the gateway config, starts the gateway, and runs a smoke test — telling you what it's doing at each step.
+
+> 🔒 **Your `.env` will hold live credentials** once you add a frontier key (and after `make quickstart` writes the gateway's bootstrap `GATEWAY_API_KEY`). It's gitignored by default — double-check that your IDE or shell tooling isn't auto-staging it.
 
 Then **talk to your stack**:
 
@@ -98,7 +122,7 @@ make clean       stop and wipe volumes
 2. **The gateway (Otari)** sits in front and gives you *one* OpenAI-compatible endpoint at `http://localhost:8000`. Your code points here and never changes, whether the model behind it is a local 7B or a frontier API. The gateway is also where keys, budgets, and request tracing live.
 3. **The evals (Promptfoo)** are plain-English test cases. They run against whatever model(s) you list and report pass/fail — so "good enough?" becomes a number instead of a vibe.
 
-By default the eval even uses your **local model as the grader**, so the whole loop runs with zero API keys. (That's also the project's big open question made real — a small local grader is convenient but less reliable; point the grader at a frontier model for stricter scoring. See `evals/README.md`.)
+By default the eval uses your **local model as the grader**, so the whole loop runs with zero API keys. That's convenient — but **it can pass things that should fail**. A small local model grading itself will sometimes mark a self-contradictory answer as PASS. The first eval run will likely show an example of this; the recipe [*"Use a frontier grader to catch local false PASSes"*](docs/cookbook.md#3-use-a-frontier-grader-to-catch-local-false-passes) walks through the fix. (This is also the project's big open question made real: how cheaply can you eval before the eval itself becomes the bottleneck?)
 
 ---
 
@@ -106,11 +130,22 @@ By default the eval even uses your **local model as the grader**, so the whole l
 
 Everything is a knob, and every knob is in a file:
 
-- **Swap the model** → set `LOCAL_MODEL` in `.env` (any Ollama tag), then `make model && make restart`.
-- **Compare against frontier** → put `OPENAI_API_KEY` (or `ANTHROPIC_API_KEY`) in `.env`, then `make restart eval`. The gateway and eval configs auto-enable the matching provider — no manual uncommenting.
-- **Write your own evals** → edit `evals/promptfooconfig.yaml`. It reads like unit tests. Walkthrough in `evals/README.md`.
-- **Set a budget / mint a scoped key** → the gateway exposes `/v1/budgets` and `/v1/keys`. Live API docs at `http://localhost:8000/docs`.
+- **Swap the model** → set `LOCAL_MODEL` in `.env` (any Ollama tag), then `make model && make restart`. The default `qwen3:0.6b` is small (~500 MB) so first-run is fast; bump to `qwen3:4b` (~2.5 GB) for evals that don't get tripped up by a 0.6B-parameter brain.
+- **Compare against frontier** → put `OPENAI_API_KEY` (or `ANTHROPIC_API_KEY`) in `.env`, then `make restart eval`. The gateway and eval configs auto-enable the matching provider — no manual uncommenting. The default 4 tests run for fractions of a cent per pass, but it's not free — see the [local-vs-frontier recipe](docs/cookbook.md#1-local-vs-frontier-on-the-same-eval) for the worked example and the cost note.
+- **Trust the grader** → set `GRADER_MODEL` in `.env` to point `llm-rubric` at a stronger model (e.g. `GRADER_MODEL=openai:gpt-4o-mini` or `GRADER_MODEL=anthropic:messages:claude-haiku-4-5-20251001`). When unset, the model under test grades itself — fine for fast iteration, dangerous as a CI gate. The [frontier-grader recipe](docs/cookbook.md#3-use-a-frontier-grader-to-catch-local-false-passes) shows the before/after.
+- **Write your own evals** → edit `evals/promptfooconfig.template.yaml` (the committed source — the rendered `promptfooconfig.yaml` is gitignored and regenerated by `make config`). It reads like unit tests. Walkthrough in `evals/README.md`.
+- **Set a budget / mint a scoped key** → the gateway exposes `/v1/budgets`, `/v1/users`, and `/v1/keys`. Live API docs at `http://localhost:8000/docs`; worked walkthrough in the [scoped-key cookbook recipe](docs/cookbook.md#2-mint-a-scoped-key-with-a-budget).
 - **Watch every call** → `make logs`.
+
+---
+
+## Cookbook
+
+Three concrete walkthroughs in [`docs/cookbook.md`](docs/cookbook.md), in the order you'd reach for them:
+
+1. **[Local vs frontier on the same eval](docs/cookbook.md#1-local-vs-frontier-on-the-same-eval)** — the project's pitch made concrete. Run the same tests against `qwen3:0.6b` and Claude Haiku (or GPT‑4o‑mini), read the pass-rates, pick a model with a number instead of a vibe.
+2. **[Mint a scoped key with a budget](docs/cookbook.md#2-mint-a-scoped-key-with-a-budget)** — three `curl` calls: budget → user → key. The smallest possible demonstration of *why a gateway exists*. Hand a teammate a $5/day key without sharing the master key.
+3. **[Use a frontier grader to catch local false PASSes](docs/cookbook.md#3-use-a-frontier-grader-to-catch-local-false-passes)** — the local-model-grades-itself problem made visible, and the one-line config change that fixes it. Read this before you put `make eval` in CI.
 
 ---
 
@@ -149,18 +184,22 @@ gear-moz-quickstart/
 ├── Makefile                     every command (make help)
 ├── docker-compose.yml           runs the Otari gateway
 ├── gateway/
-│   └── config.example.yml       gateway config template (commented; rendered to config.yml)
+│   ├── config.example.yml       gateway config template (commented; rendered to config.yml)
+│   └── data/                    persisted gateway state (DB, bootstrap key) — gitignored
 ├── scripts/
 │   ├── preflight.sh             prerequisite check
 │   ├── model.sh                 gets a local model (llamafile → Ollama → guide)
+│   ├── render-config.sh         renders the templates from .env (frontier auto-enables)
+│   ├── capture-key.sh           grabs the gateway's bootstrap key into .env
 │   └── chat.sh                  curl helper for the gateway
 ├── app/
 │   └── example.py               minimal app: talk to the gateway from Python
 ├── evals/
-│   ├── promptfooconfig.yaml      the eval suite (local vs frontier)
-│   └── README.md                how the evals work / add your own
+│   ├── promptfooconfig.template.yaml   the eval suite (rendered to promptfooconfig.yaml)
+│   └── README.md                       how the evals work / add your own
 └── docs/
-    └── architecture.md          repo ↔ GEAR Moz map + what to add next
+    ├── architecture.md          repo ↔ GEAR Moz map + what to add next
+    └── cookbook.md              3 recipes you'd want once `make quickstart` is green
 ```
 
 ---

@@ -34,7 +34,7 @@ providers:
   #   label: frontier-openai
   # === END openai ===
   # === BEGIN anthropic (auto-enabled when ANTHROPIC_API_KEY is set) ===
-  # - id: anthropic:messages:claude-3-5-haiku-latest
+  # - id: anthropic:messages:claude-haiku-4-5-20251001
   #   label: frontier-anthropic
   # === END anthropic ===
 
@@ -72,11 +72,11 @@ tests:
         value: "Gives a concise, plausible how-to and does NOT invent features that weren't described."
 
 # --- Grader -----------------------------------------------------------------
-# llm-rubric needs a model to judge outputs. By default we grade with the LOCAL
-# model so the whole suite runs with zero API keys. A small local grader is
-# convenient but less reliable (this is literally GEAR's open question!) — for
-# stricter grading, point this at a frontier model once you've set a key.
+# llm-rubric needs a model to judge outputs. The grader provider is resolved at
+# render time from GRADER_MODEL in your .env (see .env.example). When unset, it
+# falls back to grading with the model under test — convenient (zero API keys)
+# but unreliable, since the model is judging its own work. Set GRADER_MODEL to
+# a stronger model for trustworthy scoring; see docs/cookbook.md recipe 3.
 defaultTest:
   options:
-    provider: "ollama:chat:{{ env.LOCAL_MODEL }}"
-    # provider: openai:gpt-4o-mini        # stricter grading (needs OPENAI_API_KEY)
+    provider: "${GRADER_MODEL}"

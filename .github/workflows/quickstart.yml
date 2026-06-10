@@ -50,12 +50,17 @@ jobs:
         run: |
           make chat MSG="Reply with exactly: CI smoke pass."
 
+      - name: make eval-smoke — the CI gate
+        # Deterministic 3-test suite in evals/smoke.yaml using contains-any
+        # only (no llm-rubric). Designed to pass 100% with the default
+        # qwen3:0.6b model. CI fails if this fails.
+        run: make eval-smoke
+
       - name: make eval — informational
-        # The default LOCAL_MODEL (qwen3:0.6b) is intentionally tiny — it will
-        # fail at least one test (typically the prompt-injection one). That's
-        # the eval doing its job; it's why the suite exists. We surface the
-        # result but don't gate CI on it. To gate, point the eval at a
-        # stricter grader and stricter model in promptfooconfig.yaml.
+        # The full Nimbus suite uses llm-rubric and includes a prompt-injection
+        # probe the default 0.6B model will sometimes fail. That's the eval
+        # doing its job, so we surface the result but don't gate CI on it.
+        # To gate on the full suite, bump the model and set GRADER_MODEL.
         continue-on-error: true
         run: make eval
 

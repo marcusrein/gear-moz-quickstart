@@ -6,14 +6,25 @@ ok()   { printf "  \033[32m✓\033[0m %s\n" "$1"; }
 warn() { printf "  \033[33m!\033[0m %s\n" "$1"; }
 bad()  { printf "  \033[31m✗\033[0m %s\n" "$1"; }
 
+# Capture caller-set values BEFORE sourcing .env so the shell wins on conflict
+# (matches docker-compose's precedence: shell > .env > defaults). Without this,
+# `LOCAL_MODEL=qwen3:8b make preflight` would be silently overridden by .env.
+_caller_LOCAL_MODEL="${LOCAL_MODEL:-}"
+_caller_GATEWAY_URL="${GATEWAY_URL:-}"
+_caller_GRADER_MODEL="${GRADER_MODEL:-}"
+
 # Load .env the same way docker compose does, so checks reflect what the
-# gateway will actually see — not whatever happens to be in your shell env.
+# gateway will actually see when no shell override is in play.
 if [[ -f .env ]]; then
   set -a
   # shellcheck disable=SC1091
   source .env
   set +a
 fi
+
+[[ -n "$_caller_LOCAL_MODEL"  ]] && LOCAL_MODEL="$_caller_LOCAL_MODEL"
+[[ -n "$_caller_GATEWAY_URL"  ]] && GATEWAY_URL="$_caller_GATEWAY_URL"
+[[ -n "$_caller_GRADER_MODEL" ]] && GRADER_MODEL="$_caller_GRADER_MODEL"
 
 echo ""
 echo "  Preflight"

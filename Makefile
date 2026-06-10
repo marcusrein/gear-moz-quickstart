@@ -1,11 +1,32 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
+# Capture shell-env overrides BEFORE -include .env so the shell wins.
+# Without this, .env values silently mask any var the user set in their
+# shell (e.g. GATEWAY_URL=http://localhost:9999 make wait would use 8000).
+# Precedence ends up: make CLI args > shell env > .env > defaults below.
+_shell_GATEWAY_URL  := $(GATEWAY_URL)
+_shell_LOCAL_MODEL  := $(LOCAL_MODEL)
+_shell_GRADER_MODEL := $(GRADER_MODEL)
+
 # Load .env if present, and export the vars to recipes (and to docker compose).
 -include .env
 export
 
-GATEWAY_URL ?= http://localhost:8000
+ifneq ($(_shell_GATEWAY_URL),)
+GATEWAY_URL := $(_shell_GATEWAY_URL)
+endif
+ifneq ($(_shell_LOCAL_MODEL),)
+LOCAL_MODEL := $(_shell_LOCAL_MODEL)
+endif
+ifneq ($(_shell_GRADER_MODEL),)
+GRADER_MODEL := $(_shell_GRADER_MODEL)
+endif
+
+GATEWAY_URL      ?= http://localhost:8000
+# Pin promptfoo to avoid surprise breakages from upstream (everything else
+# is pinned: Otari image in docker-compose.yml, the ollama model tag in .env).
+PROMPTFOO_VERSION ?= 0.121.15
 
 # ---------------------------------------------------------------------------
 
@@ -13,7 +34,7 @@ help: ## Show this help
 	@echo ""
 	@echo "  GEAR Moz — quickstart"
 	@echo ""
-	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "  First run:  cp .env.example .env && make quickstart"
@@ -68,11 +89,15 @@ wait: ## Wait for the gateway to report healthy
 logs: ## Tail the gateway logs (every request is traced here)
 	@docker compose logs -f --tail=100
 
-key: ## Print the API key the gateway bootstrapped in its logs
-	@docker compose logs 2>/dev/null | grep -iE "api[ _-]?key" | tail -n 5 \
-		|| echo "No key line found — run 'make capture-key' once the gateway is up."
+key: ## Print the gateway API key from .env
+	@if grep -qs "^GATEWAY_API_KEY=." .env; then \
+		grep "^GATEWAY_API_KEY=" .env | cut -d= -f2-; \
+	else \
+		echo "No GATEWAY_API_KEY in .env — run 'make capture-key' once the gateway is up." >&2; \
+		exit 1; \
+	fi
 
-capture-key: ## Read the gateway's bootstrap key from logs and save it to .env
+capture-key: ## Mint a runtime API key from the master key and save it to .env
 	@bash scripts/capture-key.sh
 
 chat: ## Send a message:  make chat MSG="your question"
@@ -83,9 +108,13 @@ chat-smoke: ## Internal: a one-shot smoke test through the gateway
 	bash scripts/chat.sh "" "Reply with exactly: GEAR Moz is wired up." \
 		|| { echo "✗ chat failed — see 'make logs' and the Troubleshooting section in the README."; exit 1; }
 
-eval: ## Run the eval suite (local, plus frontier if configured)
+eval-smoke: ## Run the deterministic CI-gate eval (passes with default model)
 	@$(MAKE) --no-print-directory config
-	@npx -y promptfoo@latest eval -c evals/promptfooconfig.yaml; \
+	@npx -y promptfoo@$(PROMPTFOO_VERSION) eval -c evals/smoke.yaml
+
+eval: ## Run the full eval suite (informational — uses llm-rubric)
+	@$(MAKE) --no-print-directory config
+	@npx -y promptfoo@$(PROMPTFOO_VERSION) eval -c evals/promptfooconfig.yaml; \
 	code=$$?; \
 	if [ $$code -eq 100 ]; then \
 	  echo ""; \
@@ -100,7 +129,7 @@ eval: ## Run the eval suite (local, plus frontier if configured)
 	exit $$code
 
 eval-view: ## Open the eval results UI
-	@npx -y promptfoo@latest view
+	@npx -y promptfoo@$(PROMPTFOO_VERSION) view
 
 clean: ## Stop the gateway and wipe its persistent state (DB, keys, traces)
 	@docker compose down -v
@@ -118,4 +147,4 @@ next: ## Show next steps
 	@echo "  Add a frontier key to .env to compare local vs frontier. See the README."
 	@echo ""
 
-.PHONY: help quickstart preflight model config up down restart wait logs key capture-key chat chat-smoke eval eval-view clean next
+.PHONY: help quickstart preflight model config up down restart wait logs key capture-key chat chat-smoke eval eval-smoke eval-view clean next

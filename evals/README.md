@@ -38,12 +38,15 @@ The eval config is templated: `make config` (also run as part of `make eval`) re
 
 ## A note on the grader
 
-A small local model as the grader is convenient but less reliable than a frontier grader — which is exactly the open question this whole stack flags. For stricter scoring, switch the grader at the bottom of `promptfooconfig.template.yaml`:
+A small local model as the grader is convenient but less reliable than a stronger one — which is exactly the open question this whole stack flags. The grader is decoupled from the model under test via `GRADER_MODEL` in `.env`:
 
-```yaml
-defaultTest:
-  options:
-    provider: openai:gpt-4o-mini   # needs OPENAI_API_KEY
+```bash
+# In .env — uncomment whichever you want as the grader. Any unset = grade with LOCAL_MODEL.
+GRADER_MODEL=ollama:chat:qwen3:4b                              # bigger local grader
+# GRADER_MODEL=openai:gpt-4o-mini                              # OpenAI grader
+# GRADER_MODEL=anthropic:messages:claude-haiku-4-5-20251001    # Claude grader
 ```
+
+Then `make config eval` re-renders the eval and runs it with the new grader. Walkthrough with the before/after of a false PASS in [`docs/cookbook.md#3-use-a-frontier-grader-to-catch-local-false-passes`](../docs/cookbook.md#3-use-a-frontier-grader-to-catch-local-false-passes).
 
 Promptfoo docs: https://promptfoo.dev

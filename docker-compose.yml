@@ -1,4 +1,4 @@
-# Runs the Otari gateway (Mozilla.ai, Apache-2.0) — the "A" in GEAR.
+# Runs the Otari gateway (Mozilla.ai, Apache-2.0) — the "G" in GEAR.
 # Image: https://hub.docker.com/r/mzdotai/otari
 #
 # Kept deliberately minimal (gateway only) so there are few moving parts.
