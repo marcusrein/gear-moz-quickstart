@@ -36,11 +36,8 @@ tests:
       - type: contains
         value: "2"
 
-  - description: model follows a 'name a thing' instruction
-    vars: { question: "Name one animal." }
+  - description: model can repeat a token (deterministic-shape test)
+    vars: { question: "Reply with just the word: ready" }
     assert:
       - type: contains-any
-        value:
-          ["dog", "cat", "horse", "lion", "elephant", "bird", "fish",
-           "tiger", "bear", "wolf", "deer", "rabbit", "mouse", "monkey",
-           "cow", "sheep", "pig", "goat", "duck", "frog"]
+        value: ["ready", "Ready", "READY"]
